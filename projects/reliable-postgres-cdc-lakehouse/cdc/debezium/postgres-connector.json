@@ -1,0 +1,21 @@
+{
+  "name": "debezium_cdc_connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "${env:DEBEZIUM_USER}",
+    "database.password": "${env:DEBEZIUM_USER_PASSWORD}",
+    "database.dbname": "portfolio",
+
+    "topic.prefix": "cdc_debezium",
+
+    "plugin.name": "pgoutput",
+    "slot.name": "cdc_slot",
+    "publication.name": "cdc_publication",
+    "publication.autocreate.mode": "disabled",
+
+    "table.include.list": "public.orders,public.payments,public.refunds"
+  }
+}
