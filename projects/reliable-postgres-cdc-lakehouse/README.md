@@ -1,138 +1,161 @@
-# Estrutura macro:
+# Reliable PostgreSQL CDC Lakehouse
 
-## M0 — Fundação do projeto
-## M1 — CDC funcional
-## M2 — Camada histórica
-## M3 — Consolidação analítica
-## M4 — Orquestração e reprocessamento
-## M5 — Confiabilidade e falhas
-## M6 — Documentação e apresentação
+A local, open-source data engineering project focused on building a reliable Change Data Capture (CDC) pipeline from PostgreSQL to a lakehouse architecture.
 
+The project explores CDC, event streaming, durable raw storage, reprocessing, idempotency, analytical consolidation and failure recovery.
 
-# M0 — Fundação do projeto
+## Architecture
 
-## M0-01 — Criar repositório e estrutura de diretórios.
+### Current architecture:
 
-reliable-postgres-cdc-lakehouse/
-│
-├── README.md
-│   → Visão geral do projeto: problema, objetivo, arquitetura,
-│     stack, instruções de execução e principais decisões.
-│
-├── docker-compose.yml
-│   → Define os serviços locais que serão executados em containers,
-│     como PostgreSQL, Kafka, Kafka Connect, MinIO e Airflow.
-│
-├── .env.example
-│   → Lista variáveis de ambiente esperadas pelo projeto,
-│     sem conter senhas ou segredos reais.
-│
-├── .gitignore
-│   → Define arquivos que não devem ser versionados:
-│     .env, logs, caches, arquivos temporários, dados locais etc.
-│
-├── Makefile
-│   → Atalhos para operações frequentes, como subir o ambiente,
-│     executar testes, inicializar dados ou derrubar containers.
-│
-├── infra/
-│   → Arquivos relacionados à infraestrutura do ambiente local.
-│
-│   └── docker/
-│       → Configurações específicas de containers que não cabem
-│         diretamente no docker-compose, como Dockerfiles customizados.
-│
-├── postgreSQL/
-│   → Tudo relacionado ao PostgreSQL que simula o sistema transacional.
-│
-│   ├── init/
-│   │   → Scripts executados na inicialização do banco.
-│   │     Ex.: criação de database, usuários, permissões e configuração inicial.
-│   │
-│   ├── schema/
-│   │   → Definição das tabelas transacionais e demais objetos SQL.
-│   │     Ex.: orders, payments, refunds, constraints e índices.
-│   │
-│   └── seed/
-│       → Dados iniciais fictícios utilizados para desenvolvimento e testes.
-│         Ex.: pedidos, clientes e pagamentos de exemplo.
-│
-├── cdc/
-│   → Tudo relacionado à captura de mudanças da origem.
-│
-│   └── debezium/
-│       → Configurações do conector Debezium.
-│         Ex.: publication, replication slot, tabelas monitoradas,
-│         formato dos eventos e configurações do connector.
-│
-├── spark/
-│   → Código dos processamentos executados com Apache Spark.
-│
-│   ├── historical/
-│   │   → Job responsável por consumir eventos CDC e persistir
-│   │     a camada histórica append-only.
-│   │
-│   └── consolidation/
-│       → Job responsável por ler o histórico e produzir
-│         as tabelas consolidadas com o estado atual dos dados.
-│
-├── airflow/
-│   → Tudo relacionado à orquestração.
-│
-│   └── dags/
-│       → Definição das DAGs do Airflow.
-│         Ex.: execução da consolidação, retries, backfills
-│         e dependências entre tarefas.
-│
-├── iceberg/
-│   → Configurações relacionadas ao Apache Iceberg.
-│
-│   └── config/
-│       → Configuração de catálogo, warehouse, MinIO,
-│         propriedades de tabela e integração com Spark.
-│
-├── tests/
-│   → Testes automatizados do projeto.
-│
-│   ├── unit/
-│   │   → Testam funções ou transformações isoladamente,
-│   │     sem depender da infraestrutura completa.
-│   │
-│   ├── integration/
-│   │   → Testam a comunicação entre componentes.
-│   │     Ex.: Spark lendo Kafka ou escrevendo Iceberg.
-│   │
-│   └── e2e/
-│       → Testam o fluxo completo.
-│         Ex.: INSERT no PostgreSQL → evento CDC →
-│         histórico → tabela consolidada.
-│
-├── scripts/
-│   → Scripts auxiliares para desenvolvimento e operação.
-│     Ex.: gerar pedidos fictícios, criar connector,
-│     executar cenários de falha ou limpar o ambiente.
-│
-└── docs/
-    → Documentação técnica que complementa o README.
-    
-    ├── architecture/
-    │   → Diagramas e explicações detalhadas da arquitetura
-    │     e dos fluxos de dados.
-    │
-    ├── adr/
-    │   → Architecture Decision Records.
-    │     Cada arquivo documenta uma decisão relevante,
-    │     alternativas avaliadas e trade-offs.
-    │
-    └── runbooks/
-        → Procedimentos operacionais.
-          Ex.: "conector CDC parou", "replication slot acumulou WAL",
-          "como executar um replay" ou "como fazer backfill".
+PostgreSQL -> Debezium -> Kafka Connect -> Kafka -> Spark Structured Streaming -> Parquet -> MinIO
+
+### Planned analytical flow:
+
+Raw parquet -> Spark -> Iceberg -> Analytical layer
+
+## Technology Stack
+
+- PostgreSQL 17
+- Debezium 3.5
+- Apache Kafka 4.x
+- Kafka Connect
+- Apache Spark 4.1
+- MinIO
+- Apache Parquet
+- Apache Iceberg (planned for analytical tables)
+- Docker Compose
+- Airflow (planned for orchestration)
 
 
-## M0-02 — Definir Docker Compose base.
-## M0-03 — Subir PostgreSQL local.
-## M0-04 — Criar schema transacional mínimo de pedidos, pagamentos e reembolsos.
-## M0-05 — Criar dados seed e comandos de teste.
-## M0-06 — Adicionar README inicial com objetivo, arquitetura macro e instruções locais.
-## M0-07 — Configurar lint/testes básicos e CI inicial.
+## CDC Flow
+
+PostgreSQL logical replication exposes changesd from:
+
+- 'orders'
+- 'payments'
+- 'refunds'
+
+Debezium consumes PostgreSQL WAL using
+
+- logical replication
+- publication
+- replication slot
+- 'pgoutput'
+
+Each source table is published to an independent Kafka topic.
+
+Examples:
+
+- 'cdc_debezium.public.orders'
+- 'cdc_debezium.public.payments'
+- 'cdc_debezium.public.refunds'
+
+## Raw Layer
+
+The raw layer is designed as an append-only historical event store.
+
+Each Kafka topic will be ingested  independently by a Spark Structured Streaming aplication.
+
+Raw Schema:
+
+ -------------------------------------------------------------
+|Column            | Type             | Description           |
+|-------------------------------------------------------------|        
+|topic             | STRING           | Kafka Topic           |    
+|kafka_partition   | INT              | Kafka partition       |    
+|offset            | LONG             | Kafka Offset          |    
+|kafka_timestamp   | TIMESTAMP        | Kafka record ts       |    
+|key_raw           | BINARY           | Original Kafka key    |     
+|value_raw         | BINARY           | Original Kafka value  |     
+|ingested_at       | TIMESTAMP        | Lake ingestion ts     |
+ -------------------------------------------------------------
+
+The original kafka key and value are intentionally preserved without parsing the Debezium payload at ingested time.
+
+The tuple (topic, kafka_partition, offset) represents the techinical identity of a Kafka record and can be used downstream for deduplication and replay control.
+
+## Raw Storage Strategy
+
+Raw CDC events are stored as Parquet files in MinIO.
+
+The raw ingestion path intentionally dows not use Iceberg.
+
+The main reasons are:
+
+- raw data is append-only;
+- the layer represents events rather than current entity states;
+- minimal transformation is desired;
+- reducing metadata and commit overhead in the continuous streaming path;
+- Iceberg capabilities such as MERGE and table snapshots provide greater value in processed and analytical layers.
+
+Spark Structured Streaming checkpoints are stored separately in MinIO.
+
+## Reliable Principles
+
+The architecture is being designed around:
+
+- durable CDC positions;
+- Kafka Offsets;
+- replayability;
+- idempotent downstream processing;
+- persistent streaming checkpoints;
+- immutable raw events;
+- separation between compute and storage;
+- deterministic reprocessing.
+
+## Project Status
+
+### M0 - Foundation
+Completed.
+
+- Repository structure
+- Docker Compose foundation
+- PostgreSQL
+- Kafka
+- MinIO
+- Spark base image
+
+### M1 - CDC
+Completed.
+
+- PostgreSQL logical replication
+- Debezium connector
+- Kafka Connect
+- Initial snapshot
+- INSERT / UPDATE / DELETE validation
+- Tombstone validation
+
+### M2 - Historical Raw Layer
+In progress.
+
+Completed:
+
+- Spark <-> Kafka integration
+- Spark <-> MinIO integration
+- raw schema definition
+- raw storage strategy
+
+Next:
+
+- 'Kafka -> Spark -> Parquet' streaming job
+- persistent checkpoint
+- partition strategy
+- failure/restart validation
+
+### M3 Analytical Consolidation
+Planned.
+
+### M4 - Orchestration and Reprocessing
+Planned.
+
+### M5 - Reliability and Failure Scenarios
+Planned.
+
+### M6 - Documentation and Portfolio Representation
+Planned.
+
+
+
+
+
