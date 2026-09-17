@@ -131,6 +131,78 @@ services:
         exit 0;
       "
       
+  spark-orders:
+    image: portfolio-spark:4.1.3
+    container_name: portfolio-spark-orders
+
+    environment:
+      KAFKA_TOPIC: cdc_debezium.public.orders
+      RAW_PATH: s3a://lakehouse/raw/orders
+      CHECKPOINT_PATH: s3a://spark-checkpoints/raw-orders
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+    volumes:
+      - ./spark/historical:/opt/spark/work-dir:ro
+
+    command:
+      - /opt/spark/bin/spark-submit
+      - --packages
+      - org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.3,org.apache.hadoop:hadoop-aws:3.4.2
+      - /opt/spark/work-dir/historical_ingestion.py
+
+    depends_on:
+      - kafka
+      - minio
+
+  spark-payments:
+    image: portfolio-spark:4.1.3
+    container_name: portfolio-spark-payments
+
+    environment:
+      KAFKA_TOPIC: cdc_debezium.public.payments
+      RAW_PATH: s3a://lakehouse/raw/payments
+      CHECKPOINT_PATH: s3a://spark-checkpoints/raw-payments
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+    volumes:
+      - ./spark/historical:/opt/spark/work-dir:ro
+
+    command:
+      - /opt/spark/bin/spark-submit
+      - --packages
+      - org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.3,org.apache.hadoop:hadoop-aws:3.4.2
+      - /opt/spark/work-dir/historical_ingestion.py
+
+    depends_on:
+      - kafka
+      - minio
+
+  spark-refunds:
+    image: portfolio-spark:4.1.3
+    container_name: portfolio-spark-refunds
+
+    environment:
+      KAFKA_TOPIC: cdc_debezium.public.refunds
+      RAW_PATH: s3a://lakehouse/raw/refunds
+      CHECKPOINT_PATH: s3a://spark-checkpoints/raw-refunds
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+    volumes:
+      - ./spark/historical:/opt/spark/work-dir:ro
+
+    command:
+      - /opt/spark/bin/spark-submit
+      - --packages
+      - org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.3,org.apache.hadoop:hadoop-aws:3.4.2
+      - /opt/spark/work-dir/historical_ingestion.py
+
+    depends_on:
+      - kafka
+      - minio
+
 volumes:
   postgres-data:
   kafka-data:
