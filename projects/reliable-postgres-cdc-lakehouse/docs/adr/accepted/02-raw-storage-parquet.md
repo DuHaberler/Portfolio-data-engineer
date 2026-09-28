@@ -30,6 +30,8 @@ Kafka metadata will be persisted together with the original record:
 
 Spark Structured Streaming checkpoints will be stored separately.
 
+The Raw Landing / Raw Compacted publication model and compaction strategy are defined in ADR 04 - Raw Publication and Compaction.
+
 ## Rationale
 
 The raw layer represents an immutable event history rather than the current state of business entities.
