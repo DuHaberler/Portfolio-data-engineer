@@ -47,9 +47,14 @@
 ## docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --topic portfolio.test --from-beginning --bootstrap-server kafka:9092
 - abre um consumer dentro do container para validar o consumo das mensagens.
 
-### VALIDAÇÕES USER DEBEZIUM
+## docker compose exec kafka /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server kafka:9092 --topic cdc_debezium.public.orders --time -1
+- --time -2 -> de onde ainda posso começar a ler
+- --time -1 -> até onde o log já avançou
+- --time -3 -> offset associado ao maior timestamp da partição
 
-#### valida possibilidade de login e replicação
+# VALIDAÇÕES USER DEBEZIUM
+
+## valida possibilidade de login e replicação
 SELECT
     rolname,
     rolcanlogin,
@@ -57,7 +62,7 @@ SELECT
 FROM pg_roles
 WHERE rolname = 'user_debezium';
 
-#### valida grant de connect no banco, usage no database e select nas tabelas
+## valida grant de connect no banco, usage no database e select nas tabelas
 SELECT
     has_database_privilege('user_debezium', 'portfolio', 'CONNECT') AS can_connect,
     has_schema_privilege('user_debezium', 'public', 'USAGE') AS can_use_schema,

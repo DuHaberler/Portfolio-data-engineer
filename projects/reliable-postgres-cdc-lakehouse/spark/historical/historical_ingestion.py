@@ -14,6 +14,7 @@ spark = (
     .config("spark.hadoop.fs.s3a.secret.key", os.environ["MINIO_ROOT_PASSWORD"])
     .config("spark.hadoop.fs.s3a.path.style.access", "true")
     .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
+    .config("spark.sql.session.timeZone", "UTC")
     .getOrCreate()
 )
 
@@ -31,17 +32,17 @@ raw_df = (
         col("topic"),
         col("partition").alias("kafka_partition"),
         col("offset"),
-        col("timestamp").alias("kafka_timestamp"),
+        col("timestamp").alias("kafka_timestamp_utc"),
         col("key").alias("key_raw"),
         col("value").alias("value_raw"),
-        current_timestamp().alias("ingested_at")
-    ).withColumn("ingestion_date", to_date(col("ingested_at")))
+        current_timestamp().alias("ingested_at_utc")
+    ).withColumn("ingestion_date_utc", to_date(col("ingested_at_utc")))
 )
 query = (
     raw_df.writeStream
     .format("parquet")
     .outputMode("append")
-    .partitionBy("ingestion_date")
+    .partitionBy("ingestion_date_utc")
     .option("path", raw_path)
     .option("checkpointLocation", checkpoint_path)
     .start()
