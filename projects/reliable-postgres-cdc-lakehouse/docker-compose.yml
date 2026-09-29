@@ -143,7 +143,9 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
 
     volumes:
-      - ./spark/historical:/opt/spark/work-dir:ro
+      - ./spark/historical/historical_ingestion.py:/opt/spark/work-dir/historical_ingestion.py
+      - ./spark/historical/compaction_job.py:/opt/spark/work-dir/compaction_job.py
+      - ./spark/consolidation/orders_cdc_parser.py:/opt/spark/work-dir/orders_cdc_parser.py
 
     command:
       - /opt/spark/bin/spark-submit
