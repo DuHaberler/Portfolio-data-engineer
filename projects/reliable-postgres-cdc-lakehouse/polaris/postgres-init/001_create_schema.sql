@@ -1,0 +1,2 @@
+CREATE SCHEMA IF NOT EXISTS polaris_schema
+AUTHORIZATION polaris;

@@ -2,7 +2,21 @@ import os
 import json
 from datetime import datetime, timezone, timedelta
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, from_json
+from pyspark.sql.functions import (
+    col,
+    from_json,
+    when,
+    to_timestamp,
+    unbase64,
+    hex,
+    conv,
+    substring,
+    length,
+    lit,
+    pow,
+    max_by,
+    struct
+)
 from pyspark.sql.types import (
     StructType,
     StructField,
@@ -197,6 +211,152 @@ def parse_cdc(df_decoded, debezium_schema):
 
     return parsed_df
 
+def normalize_cdc(parsed_df):
+
+    normalized_df = (
+        parsed_df.withColumn(
+            "entity",
+            when(
+                col("cdc_operation") == 'd',
+                col("before")
+            ).otherwise(
+                col("after")
+            )
+        )
+        .select(
+            col("entity.id_order")
+            .alias("id_order"),
+
+            col("entity.id_client")
+            .alias("id_client"),
+
+            col("entity.status_order")
+            .alias("status_order"),
+
+            decode_connect_decimal(
+                "entity.amount",
+                precision=10,
+                scale=2
+            ).alias("amount"),
+
+            to_timestamp(
+                col("entity.created_at"))
+                .alias("created_at"),
+
+            to_timestamp(
+                col("entity.updated_at"))
+                .alias("updated_at"),
+
+                "cdc_operation",
+                "source_lsn",
+                "source_tx_id",
+                "source_sequence",
+                "source_ts_ms",
+                "cdc_ts_ms",
+                "topic",
+                "kafka_partition",
+                "offset",
+                "kafka_timestamp_utc"
+        )
+    )
+
+    return normalized_df
+
+def decode_connect_decimal(column_name, precision, scale):
+
+    #Decodifica o valor Base64 para os bytes originais.
+    binary_value = unbase64(col(column_name))
+
+    #Representa os bytes em hexadecimal para facilitar a conversão numérica
+    hex_value = hex(binary_value)
+
+    #Converte o hex para inteiro sem escala (unscaled value)
+    unsigned_value = (
+        conv(
+            hex_value,
+            16,
+            10
+        )
+        .cast("decimal(38,0)")
+    )
+
+    #Obtém o primeiro byte para identificar o bit de sinal
+    first_byte = (
+        conv(
+            substring(
+                hex_value,
+                1,
+                2
+            ),
+            16,
+            10
+        )
+        .cast("int")
+    )
+
+    #Calcula 2^(qtde de bits), necessário para 2's complement
+    modulus = (
+        pow(
+            lit(2),
+            length(binary_value) * 8
+        )
+        .cast("decimal(38,0)")
+    )
+
+    # Converte o valor para signed quando o bit mais significativo indica negativo.
+    signed_value = (
+        when(
+            first_byte >=128,
+            unsigned_value - modulus
+        )
+        .otherwise(unsigned_value)
+    )
+
+    #Calcula o fator da escala: scale=2 -< divisor=100
+    divisor = lit(10**scale)
+
+    #Aplica a escala e converte para o Decimal final
+    return (
+        (signed_value/divisor)
+        .cast(f"decimal({precision},{scale})")
+    )
+
+def build_orders_current(normalized_df):
+
+    #Para cada pedido, mantém a linha com maior LSN.
+    orders_current_df = (
+        normalized_df
+        .groupBy("id_order")
+        .agg(
+            max_by(
+                struct(
+                    col("id_client"),
+                    col("status_order"),
+                    col("amount"),
+                    col("created_at"),
+                    col("updated_at"),
+                    col("cdc_operation"),
+                    col("source_lsn"),
+                    col("source_tx_id"),
+                    col("source_sequence"),
+                    col("source_ts_ms"),
+                    col("cdc_ts_ms"),
+                    col("topic"),
+                    col("kafka_partition"),
+                    col("offset"),
+                    col("kafka_timestamp_utc")
+                ),
+                col("source_lsn")
+            ).alias("latest")
+        )
+        .select(
+            col("id_order"),
+            col("latest.*")
+        )
+    )
+
+    return orders_current_df
+
 def main():
 
     (spark, control_path_hadoop, fs, partition_date) = get_vars()
@@ -213,12 +373,16 @@ def main():
 
     parsed_df = parse_cdc(df_decoded, debezium_schema)
 
-    parsed_df.printSchema()
-    parsed_df.show(
+    normalized_df = normalize_cdc(parsed_df)
+
+    orders_current_df = build_orders_current(normalized_df)
+
+    orders_current_df.printSchema()
+
+    orders_current_df.show(
         10,
         truncate=False
     )
-
 
 
 if __name__ == "__main__":

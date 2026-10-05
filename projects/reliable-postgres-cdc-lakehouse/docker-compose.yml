@@ -205,7 +205,90 @@ services:
       - kafka
       - minio
 
+  postgres-polaris:
+    image: postgres:17
+    container_name: postgres-polaris
+    
+    environment:
+      POSTGRES_DB: polaris
+      POSTGRES_USER: polaris
+      POSTGRES_PASSWORD: ${POLARIS_DB_PASSWORD}
+
+    volumes:
+      #Persistencia do estado do catálogo entre reinicializações
+      - polaris-postgres-data:/var/lib/postgresql/data
+      - ./polaris/postgres-init:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      #Healthy = aceita conexões
+      test: ["CMD-SHELL", "pg_isready -U polaris -d polaris"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      
+    restart: unless-stopped
+
+  polaris:
+    image: apache/polaris-admin-tool:1.8.0
+    container_name: portfolio-polaris
+
+    depends_on:
+      postgres-polaris:
+        condition: service_healthy
+
+      polaris-bootstrap:
+        condition: service_completed_successfully
+
+    environment:
+      #persistencia jdbc
+      POLARIS_PERSISTENCE_TYPE: relational-jdbc
+
+      #conexão com o postgres dedicado ao polaris
+      QUARKUS.DATASOURCE.USERNAME: polaris
+      QUARKUS.DATASOURCE.PASSWORD: ${POLARIS_DB_PASSWORD}
+      QUARKUS.DATASOURCE.JDBC.URL: "jdbc:postgresql://postgres-polaris:5432/polaris?currentSchema=polaris_schema"
+
+      #Realm criado anteriormente pelo polaris-bootstrap
+      POLARIS_REALM_CONTEXT_REALMS: POLARIS
+
+    ports:
+      #REST APIs: Iceberg  Management API
+      - "8181:8181"
+
+      #Health check a metricas
+      - "8182:8182"
+
+    restart: unless-stopped
+
+  polaris-bootstrap:
+    image: apache/polaris-admin-tool:1.8.0
+
+    depends_on:
+      postgres-polaris:
+        condition: service_healthy
+
+    environment:
+      #persistencia jdbc
+      polaris_persistence_type: relational-jdbc
+
+      #conexão com o postgres dedicado ao polaris
+      quarkus.datasource.username: polaris
+      quarkus.datasource.password: ${POLARIS_DB_PASSWORD}
+      quarkus.datasource.jdbc.url: "jdbc:postgresql://postgres-polaris:5432/polaris?currentSchema=polaris_schema"
+
+    command:
+      - bootstrap
+      - -r
+      - POLARIS
+      - -c
+      - POLARIS,root,${POLARIS_ROOT_CLIENT_SECRET}
+
+    restart: no
+
+  
+
 volumes:
   postgres-data:
   kafka-data:
   minio-data:
+  polaris-postgres-data:
