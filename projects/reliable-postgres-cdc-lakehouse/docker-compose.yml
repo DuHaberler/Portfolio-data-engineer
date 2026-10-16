@@ -100,9 +100,10 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_REGION: sa-east-1
 
     ports:
-      - "9000:9000"  # API S3 usada por Spark/Iceberg
+      - "9000:9000"  # API S3 usada por outros serviços (spark, iceberg, polaris, etc)
       - "9001:9001"  # console web administrativo
 
     volumes:
@@ -229,7 +230,7 @@ services:
     restart: unless-stopped
 
   polaris:
-    image: apache/polaris-admin-tool:1.8.0
+    image: apache/polaris:1.8.0
     container_name: portfolio-polaris
 
     depends_on:
@@ -258,6 +259,13 @@ services:
       #Health check a metricas
       - "8182:8182"
 
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8182/q/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
     restart: unless-stopped
 
   polaris-bootstrap:
@@ -285,6 +293,27 @@ services:
 
     restart: no
 
+  polaris-init:
+    image: python:3.12-slim
+
+    depends_on:
+      polaris:
+        condition: service_healthy
+
+    environment:
+      POLARIS_API_URL: http://polaris:8181
+      POLARIS_REALM: POLARIS
+      POLARIS_USER: root
+      POLARIS_ROOT_CLIENT_SECRET: ${POLARIS_ROOT_CLIENT_SECRET}
+      POLARIS_CATALOG: lakehouse
+      POLARIS_NAMESPACE: analytics
+
+    volumes:
+      - ./infra/polaris/init/init_polaris.py:/opt/polaris/work-dir/init_polaris.py:ro
+
+    command: ["python", "/opt/polaris/work-dir/init_polaris.py"]
+
+    restart: "no"
   
 
 volumes:

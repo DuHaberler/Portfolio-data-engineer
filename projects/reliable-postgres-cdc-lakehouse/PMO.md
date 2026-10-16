@@ -301,50 +301,55 @@ Critério de conclusão:
 
 Tarefas e subtarefas:
 
-M5-T01 - Definir cenários críticos
-* M5-T01.1 - Identificar pontos de falha;
-* M5-T01.2 - Definir resultados esperados;
-* M5-T01.3 - Preparar dados e procedimento de teste.
+M5-T01 - Analisar cenários críticos dos componentes
+* M5-T01.1 - Identificar pontos de falha nos componentes e nas integrações do pipeline;
+* M5-T01.2 - Classificar as falhas e definir os comportamentos esperados;
+* M5-T01.3 - Preparar dados, cenários e procedimentos de teste.
 
-M5-T02 - Testar interrupção da ingestão
-* M5-T02.1 - Interromper Spark durante o consumo;
-* M5-T02.2 - Retomar execução;
-* M5-T02.3 - Validar integridade dos eventos.
+M5-T02 - Revisar confiabilidade dos scripts Python
+* M5-T02.1 - Identificar pontos de falha e revisar o tratamento de exceções;
+* M5-T02.2 - Avaliar estratégias de recuperação, retries, timeouts e idempotência;
+* M5-T02.3 - Implementar melhorias e validar os comportamentos esperados.
 
-M5-T03 - Testar falha na publicação
-* M5-T03.1 - Interromper compactação antes da publicação;
-* M5-T03.2 - Recuperar ou reexecutar;
-* M5-T03.3 - Validar consistência da Raw publicada.
+M5-T03 - Testar interrupção da ingestão
+* M5-T03.1 - Interromper Spark durante o consumo;
+* M5-T03.2 - Retomar execução;
+* M5-T03.3 - Validar integridade dos eventos.
 
-M5-T04 - Testar consolidação repetida
-* M5-T04.1 - Executar consolidação analítica;
-* M5-T04.2 - Reexecutar com os mesmos dados;
-* M5-T04.3 - Validar ausência de duplicidades.
+M5-T04 - Testar falha na publicação
+* M5-T04.1 - Interromper compactação antes da publicação;
+* M5-T04.2 - Recuperar ou reexecutar;
+* M5-T04.3 - Validar consistência da Raw publicada.
 
-M5-T05 - Testar reprocessamento histórico
-* M5-T05.1 - Selecionar partição histórica;
-* M5-T05.2 - Reprocessar a partição;
-* M5-T05.3 - Comparar resultados.
+M5-T05 - Testar consolidação repetida
+* M5-T05.1 - Executar consolidação analítica;
+* M5-T05.2 - Reexecutar com os mesmos dados;
+* M5-T05.3 - Validar ausência de duplicidades.
 
-M5-T06 - Testar indisponibilidade
-* M5-T06.1 - Simular indisponibilidade temporária de componente;
-* M5-T06.2 - Restabelecer o serviço;
-* M5-T06.3 - Validar recuperação do fluxo.
+M5-T06 - Testar reprocessamento histórico
+* M5-T06.1 - Selecionar partição histórica;
+* M5-T06.2 - Reprocessar a partição;
+* M5-T06.3 - Comparar resultados.
 
-M5-T07 - Validar integridade
-* M5-T07.1 - Comparar eventos entre camadas;
-* M5-T07.2 - Verificar perdas e duplicidades;
-* M5-T07.3 - Validar consistência final.
+M5-T07 - Testar indisponibilidade
+* M5-T07.1 - Simular indisponibilidade temporária de componente;
+* M5-T07.2 - Restabelecer o serviço;
+* M5-T07.3 - Validar recuperação do fluxo.
 
-M5-T08 - Avaliar observabilidade
-* M5-T08.1 - Verificar logs de execução;
-* M5-T08.2 - Validar identificação de falhas;
-* M5-T08.3 - Registrar limitações.
+M5-T08 - Validar integridade
+* M5-T08.1 - Comparar eventos entre camadas;
+* M5-T08.2 - Verificar perdas e duplicidades;
+* M5-T08.3 - Validar consistência final.
 
-M5-T09 - Documentar
-* M5-T09.1 - Registrar cenários e resultados;
-* M5-T09.2 - Consolidar evidências;
-* M5-T09.3 - Documentar limitações conhecidas.
+M5-T09 - Avaliar observabilidade
+* M5-T09.1 - Verificar logs de execução;
+* M5-T09.2 - Validar identificação de falhas;
+* M5-T09.3 - Registrar limitações.
+
+M5-T10 - Documentar
+* M5-T10.1 - Registrar cenários e resultados;
+* M5-T10.2 - Consolidar evidências;
+* M5-T10.3 - Documentar limitações conhecidas.
 
 ### M6 - Documentação
 
@@ -464,7 +469,11 @@ R05 | Problemas de integração Polaris/Spark/Iceberg/MinIO | Alto
 Impedimentos confirmados: nenhum registrado.
 
 * OBS-005 - Histórico de execução
+    O histórico deverá registrar alterações relevantes, decisões, falhas significativas e evidências de conclusão, com data e referência à tarefa correspondente.
+    Registros anteriores permanecem parcialmente distribuídos entre o repositório e a documentação técnica.
 
-O histórico deverá registrar alterações relevantes, decisões, falhas significativas e evidências de conclusão, com data e referência à tarefa correspondente.
+* OBS-006 - Estratégia de autenticação S3
+    Inicialmente, o Spark utilizará credenciais S3 estáticas para acessar o MinIO, reduzindo a complexidade da implementação. Posteriormente, será realizada a migração para Credential Vending, considerando a compatibilidade entre Polaris e MinIO.
+        Referência: M3-T08
 
-Registros anteriores permanecem parcialmente distribuídos entre o repositório e a documentação técnica.
+
