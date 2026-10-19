@@ -43,13 +43,22 @@ def get_vars():
             - timedelta(days=1)
         )
 
+    POLARIS_SECRET = os.environ["POLARIS_ROOT_CLIENT_SECRET"]
+    MINIO_USER = os.environ["MINIO_ROOT_USER"]
+    MINIO_PASSWORD = os.environ["MINIO_ROOT_PASSWORD"]
+
     spark = (
             SparkSession.builder
-            .appName(f"cdc-parser-{DATASET}")
-            .config("spark.sql.session.timeZone","UTC")
+            .appName(f"orders-analytics")
+            #Polaris
+            .config("spark.sql.catalog.lakehouse.credential", f"root:{POLARIS_SECRET}")
+            #Iceberg s3FileIO
+            .config("spark.sql.catalog.lakehouse.s3.access-key-id", MINIO_USER)
+            .config("spark.sql.catalog.lakehouse.s3.secret-access-key", MINIO_PASSWORD)
+            #Hadoop s3a
             .config("spark.hadoop.fs.s3a.endpoint","http://minio:9000")
-            .config("spark.hadoop.fs.s3a.access.key", os.environ["MINIO_ROOT_USER"])
-            .config("spark.hadoop.fs.s3a.secret.key", os.environ["MINIO_ROOT_PASSWORD"])
+            .config("spark.hadoop.fs.s3a.access.key", MINIO_USER)
+            .config("spark.hadoop.fs.s3a.secret.key", MINIO_PASSWORD)
             .config("spark.hadoop.fs.s3a.path.style.access","true")
             .config("spark.hadoop.fs.s3a.connection.ssl.enabled","false")
             .getOrCreate()

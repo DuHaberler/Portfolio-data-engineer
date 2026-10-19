@@ -297,6 +297,8 @@ Critério de conclusão:
 - Consistência entre camadas;
 - Execuções recuperáveis ou reprocessáveis;
 - Falhas identificáveis;
+- Métricas operacionais do Iceberg capturadas e persistidas;
+- Histórico de métricas disponível para consulta e análise;
 - Cenários críticos testados.
 
 Tarefas e subtarefas:
@@ -346,10 +348,20 @@ M5-T09 - Avaliar observabilidade
 * M5-T09.2 - Validar identificação de falhas;
 * M5-T09.3 - Registrar limitações.
 
-M5-T10 - Documentar
-* M5-T10.1 - Registrar cenários e resultados;
-* M5-T10.2 - Consolidar evidências;
-* M5-T10.3 - Documentar limitações conhecidas.
+M5-T10 - Implementar observabilidade Iceberg
+* M5-T10.1 - Configurar permissões de envio de métricas no Polaris;
+* M5-T10.2 - Investigar e definir mecanismo de captura dos relatórios ScanReport e CommitReport;
+* M5-T10.3 - Implementar captura dos relatórios;
+* M5-T10.4 - Definir schema e tratamento das métricas;
+* M5-T10.5 - Criar tabela Iceberg para persistência histórica;
+* M5-T10.6 - Implementar persistência das métricas;
+* M5-T10.7 - Validar captura, persistência e consulta dos relatórios;
+* M5-T10.8 - Documentar arquitetura, funcionamento e limitações.
+
+M5-T11 - Documentar
+* M5-T11.1 - Registrar cenários e resultados;
+* M5-T11.2 - Consolidar evidências;
+* M5-T11.3 - Documentar limitações conhecidas.
 
 ### M6 - Documentação
 

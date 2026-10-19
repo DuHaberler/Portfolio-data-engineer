@@ -252,6 +252,11 @@ services:
       #Realm criado anteriormente pelo polaris-bootstrap
       POLARIS_REALM_CONTEXT_REALMS: POLARIS
 
+      #AWS credentials
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: sa-east-1
+
     ports:
       #REST APIs: Iceberg  Management API
       - "8181:8181"
@@ -315,6 +320,32 @@ services:
 
     restart: "no"
   
+  spark-analytics:
+    image: portfolio-spark:4.1.3
+    container_name: portfolio-spark-analytics
+
+    environment:
+      DATASET: orders
+      CONTROL_PATH: s3a://lakehouse/raw/compacted/orders/control
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      POLARIS_ROOT_CLIENT_SECRET: ${POLARIS_ROOT_CLIENT_SECRET}
+
+    volumes:
+      - ./spark/consolidation/orders_cdc_parser.py:/opt/spark/work-dir/orders_cdc_parser.py:ro
+      - ./spark/config/analytics.conf:/opt/spark/conf/analytics.conf:ro
+      - ./spark/consolidation/tests/test_catalog.py:/opt/spark/work-dir/tests/test_catalog.py:ro
+      - ./spark/consolidation/tests/test_iceberg_io.py:/opt/spark/work-dir/tests/test_iceberg_io.py:ro
+
+    command:
+      - /opt/spark/bin/spark-submit
+      - --properties-file
+      - /opt/spark/conf/analytics.conf
+      - /opt/spark/work-dir/orders_cdc_parser.py
+    
+    depends_on:
+      - minio
+      - polaris
 
 volumes:
   postgres-data:
