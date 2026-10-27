@@ -1,5 +1,5 @@
-import os
 from pyspark.sql import SparkSession
+from common.polaris_auth import get_polaris_credential
 
 
 def main():
@@ -9,7 +9,7 @@ def main():
         .appName("test-polaris-catalog")
         .config(
             "spark.sql.catalog.lakehouse.credential",
-            f"root:{os.environ['POLARIS_ROOT_CLIENT_SECRET']}"
+            get_polaris_credential()
         )
         .getOrCreate()
     )
