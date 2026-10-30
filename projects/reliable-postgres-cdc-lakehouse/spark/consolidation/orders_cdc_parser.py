@@ -333,6 +333,7 @@ def decode_connect_decimal(column_name, precision, scale):
 def build_orders_current(normalized_df):
 
     #Para cada pedido, mantém a linha com maior LSN.
+    #Em empate de LSN (ex.: reentrega at-least-once), desempata pelo maior offset.
     orders_current_df = (
         normalized_df
         .groupBy("id_order")
@@ -355,7 +356,10 @@ def build_orders_current(normalized_df):
                     col("offset"),
                     col("kafka_timestamp_utc")
                 ),
-                col("source_lsn")
+                struct(
+                    col("source_lsn"),
+                    col("offset")
+                )
             ).alias("latest")
         )
         .select(

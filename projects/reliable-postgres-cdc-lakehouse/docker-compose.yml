@@ -311,7 +311,7 @@ services:
       POLARIS_USER: root
       POLARIS_ROOT_CLIENT_SECRET: ${POLARIS_ROOT_CLIENT_SECRET}
       POLARIS_CATALOG: lakehouse
-      POLARIS_NAMESPACE: analytics
+      POLARIS_NAMESPACE: orders
       SPARK_PRINCIPAL: spark-principal-analytics
       SPARK_PRINCIPAL_ROLE: spark-principal-role-analytics
       CATALOG_ROLE_NAME: analytics-read-write
@@ -343,6 +343,7 @@ services:
       - ./spark/consolidation/tests/test_iceberg_io.py:/opt/spark/work-dir/tests/test_iceberg_io.py:ro
       - ./infra/polaris/secrets:/opt/polaris/secrets:ro
       - ./spark/common:/opt/spark/work-dir/common:ro
+      - ./spark/consolidation/tests/test_orders_current.py:/opt/spark/work-dir/tests/test_orders_current.py:ro
 
     command:
       - /opt/spark/bin/spark-submit

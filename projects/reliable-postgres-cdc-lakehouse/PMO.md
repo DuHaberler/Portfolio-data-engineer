@@ -444,48 +444,36 @@ M3-T08      | Em andamento
 M3-T09      | Em andamento
 -----------------------------------------
 
-Próxima atividade: M3-T08.3 - Validar serviço principal do Apache Polaris.
 
-Demais etapas
+## Decisões arquiteturais
 
-* M0-M2: Implementadas; revisão retrospectiva dos critérios pendentes;
-* M4-M5: execução não iniciada;
-* M6: documentação parcialmente realizada.
+| ADR | Decisão                                                 | Status              |
+|-----|---------------------------------------------------------|---------------------|
+| 01  | CDC com Debezium e Kafka                                | Aceito              |
+| 02  | Armazenamento da Raw em Parquet                         | Aceito              |
+| 03  | Isolamento das aplicações Spark                         | Aceito              |
+| 04  | Publicação e compactação da Raw                         | Aceito              |
+| 05  | Ordenação CDC por source_lsn com desempate por offset   | Aceito              |
+| 06  | Credenciais S3 estáticas, com migração para Credential Vending | Proposto (M3-T08.6) |
 
-O acompanhamento individual das subtarefas será registrado conforme sua execução for confirmada.
+## Pendências
 
-## Observações
+| ID     | Pendência                                                        | Referência |
+|--------|------------------------------------------------------------------|------------|
+| PEN-01 | Validação retrospectiva dos critérios de conclusão de M0-M2      | M0-M2      |
+| PEN-02 | Definir a credencial S3 do Spark (root ou usuário restrito)      | M3-T08.6   |
+| PEN-03 | Remover o uso do root do Polaris e do MinIO em orders_cdc_parser.py | M3-T08.6 |
+| PEN-04 | Avaliar TABLE_READ_PROPERTIES e TABLE_WRITE_PROPERTIES           | M3-T08.6   |
+| PEN-05 | Atualizar nomes de principal, roles e namespace nos documentos   | M3-T09     |
 
-* OBS-001 - Validação retrospectiva:
-    M0-M2 foram implementadas antes da formalização completa dos critérios de conclusão. A validação retrospectiva permanece pendente.
+## Riscos e impedimentos
 
-* OBS-002 - Ordenação CDC:
-    A consolidação do estado atual utiliza source_lsn como referêcnai principal de ordenação por id_order. Eventos com source_lsn idêntico para o mesmo pedido exigem tratamento explícito.
-        Referência: M3-T04
+| ID  | Risco                                               | Impacto | Status / mitigação                                                    |
+|-----|-----------------------------------------------------|---------|-----------------------------------------------------------------------|
+| R01 | Perda ou inconsistência de eventos                  | Alto    | Aberto; validação em M5-T08                                           |
+| R02 | Conflitos de concorrência                           | Alto    | Aberto; validação em M5                                               |
+| R03 | Falhas que comprometam a continuidade               | Alto    | Aberto; validação em M5-T03 a M5-T07                                  |
+| R04 | Casos excepcionais não previstos                    | Alto    | Aberto; M5-T01                                                        |
+| R05 | Problemas de integração Polaris/Spark/Iceberg/MinIO | Alto    | Parcialmente mitigado: catálogo, RBAC e integração Spark validados (M3-T08.5) |
 
-* OBS-003 - Apache Polaris
-    O PostgreSQL dedicado e o bootstrap inicial foram configurados. Permanecem pendentes a validação do serviço principal e a integração com Spark, Iceberg e MinIO.
-        Referência: M3-T08
-
-* OBS-004 - Riscos
-------------------------------------------------------------------------------
-ID  | Risco                                               | Impacto preliminar
-------------------------------------------------------------------------------
-R01 | Perda ou inconsistência de eventos                  | Alto
-R02 | Conflitos de concorrência                           | Alto
-R03 | Falhas que comprometam a continuidade               | Alto
-R04 | Casos excepcionais não previstos                    | Alto
-R05 | Problemas de integração Polaris/Spark/Iceberg/MinIO | Alto
-------------------------------------------------------------------------------
-
-Impedimentos confirmados: nenhum registrado.
-
-* OBS-005 - Histórico de execução
-    O histórico deverá registrar alterações relevantes, decisões, falhas significativas e evidências de conclusão, com data e referência à tarefa correspondente.
-    Registros anteriores permanecem parcialmente distribuídos entre o repositório e a documentação técnica.
-
-* OBS-006 - Estratégia de autenticação S3
-    Inicialmente, o Spark utilizará credenciais S3 estáticas para acessar o MinIO, reduzindo a complexidade da implementação. Posteriormente, será realizada a migração para Credential Vending, considerando a compatibilidade entre Polaris e MinIO.
-        Referência: M3-T08
-
-
+Impedimentos confirmados: nenhum.
