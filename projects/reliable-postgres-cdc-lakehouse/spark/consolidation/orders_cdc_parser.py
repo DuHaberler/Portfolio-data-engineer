@@ -2,6 +2,8 @@ import os
 import json
 from datetime import datetime, timezone, timedelta
 from pyspark.sql import SparkSession
+from common.minio_auth import get_minio_credential
+from common.polaris_auth import get_polaris_credential
 from pyspark.sql.functions import (
     col,
     from_json,
@@ -26,7 +28,6 @@ from pyspark.sql.types import (
 
 def get_vars():
 
-    DATASET = os.environ["DATASET"]
     CONTROL_PATH = os.environ["CONTROL_PATH"]
 
     PARTITION_DATE_ENV = os.getenv("PARTITION_DATE")
@@ -43,22 +44,21 @@ def get_vars():
             - timedelta(days=1)
         )
 
-    POLARIS_SECRET = os.environ["POLARIS_ROOT_CLIENT_SECRET"]
-    MINIO_USER = os.environ["MINIO_ROOT_USER"]
-    MINIO_PASSWORD = os.environ["MINIO_ROOT_PASSWORD"]
+    polaris_credentials = get_polaris_credential()
+    minio_access_key, minio_secret_key = get_minio_credential()
 
     spark = (
             SparkSession.builder
             .appName(f"orders-analytics")
             #Polaris
-            .config("spark.sql.catalog.lakehouse.credential", f"root:{POLARIS_SECRET}")
+            .config("spark.sql.catalog.lakehouse.credential", polaris_credentials)
             #Iceberg s3FileIO
-            .config("spark.sql.catalog.lakehouse.s3.access-key-id", MINIO_USER)
-            .config("spark.sql.catalog.lakehouse.s3.secret-access-key", MINIO_PASSWORD)
+            .config("spark.sql.catalog.lakehouse.s3.access-key-id", minio_access_key)
+            .config("spark.sql.catalog.lakehouse.s3.secret-access-key", minio_secret_key)
             #Hadoop s3a
             .config("spark.hadoop.fs.s3a.endpoint","http://minio:9000")
-            .config("spark.hadoop.fs.s3a.access.key", MINIO_USER)
-            .config("spark.hadoop.fs.s3a.secret.key", MINIO_PASSWORD)
+            .config("spark.hadoop.fs.s3a.access.key", minio_access_key)
+            .config("spark.hadoop.fs.s3a.secret.key", minio_secret_key)
             .config("spark.hadoop.fs.s3a.path.style.access","true")
             .config("spark.hadoop.fs.s3a.connection.ssl.enabled","false")
             .getOrCreate()
@@ -69,10 +69,21 @@ def get_vars():
     control_path_hadoop = spark._jvm.org.apache.hadoop.fs.Path(control_file_path)
     fs = control_path_hadoop.getFileSystem(hadoop_conf)
     
-    return (spark, control_path_hadoop, fs, partition_date)
+    return {
+        "spark":spark,
+        "control_path_hadoop":control_path_hadoop,
+        "fs":fs,
+        "partition_date":partition_date
+        }
 
 
-def check_partition_run(control_path_hadoop, fs, spark, partition_date):
+def check_partition_run(vars):
+
+    fs = vars["fs"]
+    control_path_hadoop = vars["control_path_hadoop"]
+    spark = vars["spark"]
+    partition_date = vars["partition_date"]
+
     if fs.exists(control_path_hadoop):
         input_stream = fs.open(control_path_hadoop)
 
@@ -372,14 +383,14 @@ def build_orders_current(normalized_df):
 
 def main():
 
-    (spark, control_path_hadoop, fs, partition_date) = get_vars()
+    vars = get_vars()
 
-    published_path = check_partition_run(control_path_hadoop, fs, spark, partition_date)
-    published_path_hadoop = spark._jvm.org.apache.hadoop.fs.Path(published_path)
+    published_path = check_partition_run(vars)
+    published_path_hadoop = vars["spark"]._jvm.org.apache.hadoop.fs.Path(published_path)
     
-    check_parquet_files(fs, published_path_hadoop, spark)
+    check_parquet_files(vars["fs"], published_path_hadoop, vars["spark"])
 
-    df_raw = spark.read.parquet(published_path)
+    df_raw = vars["spark"].read.parquet(published_path)
     df_decoded = decode_df(df_raw)
 
     debezium_schema = get_debezium_schema()  

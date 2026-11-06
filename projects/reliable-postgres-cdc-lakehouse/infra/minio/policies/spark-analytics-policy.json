@@ -1,0 +1,35 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ListAllowedPrefixes",
+            "Effect": "Allow",
+            "Action": ["s3:ListBucket"],
+            "Resource": ["arn:aws:s3:::lakehouse"],
+            "Condition": {
+                "StringLike": {
+                    "s3:prefix": [
+                        "_control/compaction/orders/*",
+                        "raw/compacted/orders/*",
+                        "analytics/*"
+                    ]
+                }
+            }
+        },
+        {
+            "Sid": "ReadControlAndRawCompacted",
+            "Effect": "Allow",
+            "Action": ["s3:GetObject"],
+            "Resource": [
+                "arn:aws:s3:::lakehouse/_control/compaction/orders/*",
+                "arn:aws:s3:::lakehouse/raw/compacted/orders/*"
+            ]
+        },
+        {
+            "Sid": "ReadWriteAnalytics",
+            "Effect": "Allow",
+            "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+            "Resource": ["arn:aws:s3:::lakehouse/analytics/*"]
+        }
+    ]
+}

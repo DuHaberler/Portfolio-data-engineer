@@ -112,8 +112,8 @@ services:
     command: server /data --console-address ":9001"  # inicia o servidor usando /data e expõe o console na porta 9001
 
   minio-init:
-    image: minio/mc:latest  # cliente CLI do MinIO usado para inicialização
-    container_name: portfolio-minio-init
+    image: python:3.12-slim 
+    container_name: portfolio-init-minio
 
     depends_on:
       - minio
@@ -121,16 +121,25 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_BUCKETS: lakehouse,spark-checkpoints
+      MINIO_SPARK_USER: spark-analytics
+      MINIO_SPARK_POLICY: spark-analytics-policy
+      MINIO_POLICY_FILE: /opt/minio/policies/spark-analytics-policy.json
+      MINIO_SECRETS_FILE: /opt/minio/secrets/.env.secrets
+      MINIO_REGION: sa-east-1
 
-    entrypoint: >
-      /bin/sh -c "
-        until /usr/bin/mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do
-          sleep 2;
-        done;
-        /usr/bin/mc mb --ignore-existing local/lakehouse;
-        /usr/bin/mc mb --ignore-existing local/spark-checkpoints;
-        exit 0;
-      "
+    volumes:
+      - ./infra/minio/init:/opt/minio/init:ro
+      - ./infra/minio/policies:/opt/minio/policies:ro
+      - ./infra/minio/secrets:/opt/minio/secrets
+
+
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - pip install --no-cache-dir --quiet minio==7.2.15 && python /opt/minio/init/minio_init.py
+
+    restart: "no"
       
   spark-orders:
     image: portfolio-spark:4.1.3
@@ -317,10 +326,10 @@ services:
       CATALOG_ROLE_NAME: analytics-read-write
 
     volumes:
-      - ./infra/polaris/init/init_polaris.py:/opt/polaris/work-dir/init_polaris.py:ro
+      - ./infra/polaris/init/polaris_init.py:/opt/polaris/work-dir/polaris_init.py:ro
       - ./infra/polaris/secrets:/opt/polaris/secrets
 
-    command: ["python", "/opt/polaris/work-dir/init_polaris.py"]
+    command: ["python", "/opt/polaris/work-dir/polaris_init.py"]
 
     restart: "no"
   
@@ -329,12 +338,10 @@ services:
     container_name: portfolio-spark-analytics
 
     environment:
-      DATASET: orders
-      CONTROL_PATH: s3a://lakehouse/raw/compacted/orders/control
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      CONTROL_PATH: s3a://lakehouse/_control/compaction/orders
       POLARIS_SECRETS_FILE: /opt/polaris/secrets/.env.secrets
       PYTHONPATH: /opt/spark/work-dir
+      MINIO_SECRETS_FILE: /opt/minio/secrets/.env.secrets
 
     volumes:
       - ./spark/consolidation/orders_cdc_parser.py:/opt/spark/work-dir/orders_cdc_parser.py:ro
@@ -344,6 +351,7 @@ services:
       - ./infra/polaris/secrets:/opt/polaris/secrets:ro
       - ./spark/common:/opt/spark/work-dir/common:ro
       - ./spark/consolidation/tests/test_orders_current.py:/opt/spark/work-dir/tests/test_orders_current.py:ro
+      - ./infra/minio/secrets:/opt/minio/secrets:ro
 
     command:
       - /opt/spark/bin/spark-submit
@@ -357,6 +365,8 @@ services:
       polaris:
         condition: service_healthy
       polaris-init:
+        condition: service_completed_successfully
+      minio-init:
         condition: service_completed_successfully
 
 volumes:
