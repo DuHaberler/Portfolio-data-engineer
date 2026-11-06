@@ -69,3 +69,32 @@ SELECT
     has_table_privilege('user_debezium', 'public.orders', 'SELECT') AS can_read_orders,
     has_table_privilege('user_debezium', 'public.payments', 'SELECT') AS can_read_payments,
     has_table_privilege('user_debezium', 'public.refunds', 'SELECT') AS can_read_refunds;
+
+
+
+# TESTES DE CÓDIGO
+
+## spark/historical/compaction_job.py
+
+docker compose run --rm `
+  -e DATASET=orders `
+  -e PARTITION_DATE=2026-09-17 `
+  -e LANDING_PATH=s3a://lakehouse/raw/landing/orders `
+  -e COMPACTED_PATH=s3a://lakehouse/raw/compacted/orders `
+  -e CONTROL_PATH=s3a://lakehouse/_control/compaction/orders `
+  spark-orders `
+  /opt/spark/bin/spark-submit `
+  --packages org.apache.hadoop:hadoop-aws:3.4.2 `
+  /opt/spark/work-dir/compaction_job.py
+
+## spark/consolidation/orders_cdc_parser.py
+
+docker compose run --rm `
+  -e DATASET=orders `
+  -e PARTITION_DATE=2026-09-17 `
+  -e COMPACTED_PATH=s3a://lakehouse/raw/compacted/orders `
+  -e CONTROL_PATH=s3a://lakehouse/_control/compaction/orders `
+  spark-orders `
+  /opt/spark/bin/spark-submit `
+  --packages org.apache.hadoop:hadoop-aws:3.4.2 `
+  /opt/spark/work-dir/orders_cdc_parser.py

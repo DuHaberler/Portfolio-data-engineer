@@ -268,21 +268,21 @@ def check_partition_status(fs, control_path_hadoop, RUNNING_STALE_AFTER_MINUTES,
 
 
 def get_parquet_files(fs, path):
-    statuses = fs.listStatus(path)
+    objects = fs.listStatus(path)
 
     parquet_files = []
 
-    for status in statuses:
-        if status.isFile() and status.getPath().getName().endswith(".parquet"):
-            parquet_files.append(status)
+    for object in objects:
+        if object.isFile() and object.getPath().getName().endswith(".parquet"):
+            parquet_files.append(object)
             
     return parquet_files
 
 
 def calculate_compaction(parquet_files, SMALL_FILE_THRESHOLD_MB, TARGET_FILE_SIZE_MB, MIN_FILES_TO_COMPACT, FRAGMENTATION_THRESHOLD):
     total_size_bytes = sum(
-        status.getLen()
-        for status in parquet_files
+        file.getLen()
+        for file in parquet_files
     )
 
     small_file_threshold_bytes = (
@@ -291,8 +291,8 @@ def calculate_compaction(parquet_files, SMALL_FILE_THRESHOLD_MB, TARGET_FILE_SIZ
 
     small_file_count = sum(
         1
-        for status in parquet_files
-        if status.getLen() < small_file_threshold_bytes
+        for file in parquet_files
+        if file.getLen() < small_file_threshold_bytes
     )
 
     target_size_file_bytes = TARGET_FILE_SIZE_MB * 1024 * 1024
@@ -328,8 +328,8 @@ def create_compacted_path(COMPACTED_PATH, fs, partition_date, run_id, spark):
 
 def perform_operation(operation, parquet_files, spark, run_path_hadoop, hadoop_conf, partition_path, expected_files, run_path, fs):
     if operation == "NO_NEED":
-        for status in parquet_files:
-            source_path = status.getPath()
+        for file in parquet_files:
+            source_path = file.getPath()
 
             destination_path = spark._jvm.org.apache.hadoop.fs.Path(
                 run_path_hadoop,
@@ -397,13 +397,13 @@ def calculate_fingerprint(df):
 
 def get_fingerprints(run_path, fs, spark, partition_path):
     run_path_hadoop = spark._jvm.org.apache.hadoop.fs.Path(run_path)
-    output_statuses = fs.listStatus(run_path_hadoop)
+    output_object = fs.listStatus(run_path_hadoop)
 
     output_parquet_files = [
-        status
-        for status in output_statuses
-        if status.isFile()
-        and status.getPath().getName().endswith(".parquet")
+        object
+        for object in output_object
+        if object.isFile()
+        and object.getPath().getName().endswith(".parquet")
     ]
 
     output_bytes = sum(
